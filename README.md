@@ -161,6 +161,6 @@ This project entails the creation of a state-of-the-art URL shortener service. T
    - Submit custom short URL that exists, receive error.
 
 ## Assumptions
-- Less than 100 users.
+- Less than 10,000 users.
 - Scalability not a primary concern.
 - No TTL required initially.
