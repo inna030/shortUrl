@@ -1,27 +1,8 @@
-import os
-
-# Set environment variables directly in the script
-os.environ['AWS_ACCESS_KEY_ID'] = 'AKIA5FTY6OZT5ZLUQ74Q'
-os.environ['AWS_SECRET_ACCESS_KEY'] = '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'
-os.environ['AWS_REGION'] = 'us-east-1'
-
-from dotenv import load_dotenv
-from pathlib import Path
-
-# Load environment variables from the .env file
-env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
-load_dotenv(dotenv_path=env_path)
-
 import boto3
 import logging
 import os
 from boto3.dynamodb.conditions import Key
 from pathlib import Path
-
-from dotenv import load_dotenv
-
-env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
-load_dotenv(dotenv_path=env_path)
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,16 +10,33 @@ from fastapi.templating import Jinja2Templates
 from app.api import url_router
 import uvicorn
 
+from dotenv import load_dotenv
+env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
+load_dotenv(dotenv_path=env_path)
+
+# Fetch AWS credentials and region from environment variables
+aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+region = os.getenv('AWS_REGION')
+
+if not aws_access_key_id or not aws_secret_access_key:
+    raise EnvironmentError("AWS credentials are not set in the environment variables.")
+
+# Initialize boto3 session
+session = boto3.Session(
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key,
+    region_name=region
+)
+
+
+
+load_dotenv(dotenv_path=env_path)
+
 # Load environment variables from .env file
 
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 
-# Fetch AWS credentials and region from environment variables
-aws_access_key_id = os.getenv('AKIA5FTY6OZT5ZLUQ74Q')
-aws_secret_access_key = os.getenv('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')
-region = os.getenv('AWS_REGION', 'us-east-1')
 
 
 # Initialize boto3 session
@@ -49,11 +47,6 @@ print(f"AWS_REGION: {region}")
 if not aws_access_key_id or not aws_secret_access_key:
     raise EnvironmentError("AWS credentials are not set in the environment variables.")
 
-session = boto3.Session(
-    aws_access_key_id='AKIA5FTY6OZT5ZLUQ74Q',
-    aws_secret_access_key='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',
-    region_name='us-east-1'
-)
 # Initialize DynamoDB resource
 dynamodb = session.resource('dynamodb')
 
