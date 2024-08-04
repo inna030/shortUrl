@@ -11,32 +11,58 @@ from app.api import url_router
 import uvicorn
 
 from dotenv import load_dotenv
-env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
-load_dotenv(dotenv_path=env_path)
+
+logging.basicConfig(level=logging.INFO)
 
 # Fetch AWS credentials and region from environment variables
-aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-region = os.getenv('AWS_REGION')
+aws_access_key_id = os.getenv('AKIA5FTY6OZT5ZLUQ74Q')
+aws_secret_access_key = os.getenv('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')
+region = os.getenv('AWS_REGION', 'us-east-1')
+
+# Initialize boto3 session
+print(f"AWS_ACCESS_KEY_ID: {aws_access_key_id}")
+print(f"AWS_SECRET_ACCESS_KEY: {aws_secret_access_key}")
+print(f"AWS_REGION: {region}")
 
 if not aws_access_key_id or not aws_secret_access_key:
     raise EnvironmentError("AWS credentials are not set in the environment variables.")
 
-# Initialize boto3 session
 session = boto3.Session(
-    aws_access_key_id=aws_access_key_id,
-    aws_secret_access_key=aws_secret_access_key,
-    region_name=region
+    aws_access_key_id='AKIA5FTY6OZT5ZLUQ74Q',
+    aws_secret_access_key='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',
+    region_name='us-east-1'
 )
 
+# Initialize DynamoDB resource
+dynamodb = session.resource('dynamodb')
 
+# Log credentials for debugging (do not log secrets in production)
+credentials = session.get_credentials()
+current_credentials = credentials.get_frozen_credentials()
+logging.info(f"AWS Access Key ID: {current_credentials.access_key}")
+logging.info(f"AWS Region: {session.region_name}")
 
-load_dotenv(dotenv_path=env_path)
+def remove_sensitive_files(file_pattern):
+    # Download BFG Repo-Cleaner
+    bfg_url = "https://repo1.maven.org/maven2/com/madgag/bfg/1.13.0/bfg-1.13.0.jar"
+    bfg_path = Path("bfg.jar")
+    
+    if not bfg_path.exists():
+        subprocess.run(["wget", bfg_url, "-O", bfg_path], check=True)
+    
+    # Run BFG Repo-Cleaner
+    subprocess.run(["java", "-jar", str(bfg_path), f"--delete-files", file_pattern], check=True)
+    
+    # Clean up Git history
+    subprocess.run(["git", "reflog", "expire", "--expire=now", "--all"], check=True)
+    subprocess.run(["git", "gc", "--prune=now", "--aggressive"], check=True)
+    
+    # Force push the changes
+    subprocess.run(["git", "push", "origin", "--force", "--all"], check=True)
+    subprocess.run(["git", "push", "origin", "--force", "--tags"], check=True)
 
-# Load environment variables from .env file
-
-
-
+# Call the function to remove the sensitive files
+remove_sensitive_files(".env")
 
 
 # Initialize boto3 session
