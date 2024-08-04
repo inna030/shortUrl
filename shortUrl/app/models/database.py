@@ -1,8 +1,27 @@
+import os
+
+# Set environment variables directly in the script
+os.environ['AWS_ACCESS_KEY_ID'] = 'AKIA5FTY6OZT5ZLUQ74Q'
+os.environ['AWS_SECRET_ACCESS_KEY'] = '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'
+os.environ['AWS_REGION'] = 'us-east-1'
+
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from the .env file
+env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
+load_dotenv(dotenv_path=env_path)
+
 import boto3
 import logging
 import os
 from boto3.dynamodb.conditions import Key
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+env_path = Path('/Users/innalu/PycharmProjects/shortUrl/.env')
+load_dotenv(dotenv_path=env_path)
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,8 +29,10 @@ from fastapi.templating import Jinja2Templates
 from app.api import url_router
 import uvicorn
 
-from dotenv import load_dotenv
+# Load environment variables from .env file
 
+
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 
 # Fetch AWS credentials and region from environment variables
@@ -19,11 +40,12 @@ aws_access_key_id = os.getenv('AKIA5FTY6OZT5ZLUQ74Q')
 aws_secret_access_key = os.getenv('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')
 region = os.getenv('AWS_REGION', 'us-east-1')
 
+
 # Initialize boto3 session
+
 print(f"AWS_ACCESS_KEY_ID: {aws_access_key_id}")
 print(f"AWS_SECRET_ACCESS_KEY: {aws_secret_access_key}")
 print(f"AWS_REGION: {region}")
-
 if not aws_access_key_id or not aws_secret_access_key:
     raise EnvironmentError("AWS credentials are not set in the environment variables.")
 
@@ -32,47 +54,6 @@ session = boto3.Session(
     aws_secret_access_key='Rk69DXQcfxW7W2M8y8qYBhaajqa4023oiPLJWZpu',
     region_name='us-east-1'
 )
-
-# Initialize DynamoDB resource
-dynamodb = session.resource('dynamodb')
-
-# Log credentials for debugging (do not log secrets in production)
-credentials = session.get_credentials()
-current_credentials = credentials.get_frozen_credentials()
-logging.info(f"AWS Access Key ID: {current_credentials.access_key}")
-logging.info(f"AWS Region: {session.region_name}")
-
-def remove_sensitive_files(file_pattern):
-    # Download BFG Repo-Cleaner
-    bfg_url = "https://repo1.maven.org/maven2/com/madgag/bfg/1.13.0/bfg-1.13.0.jar"
-    bfg_path = Path("bfg.jar")
-    
-    if not bfg_path.exists():
-        subprocess.run(["wget", bfg_url, "-O", bfg_path], check=True)
-    
-    # Run BFG Repo-Cleaner
-    subprocess.run(["java", "-jar", str(bfg_path), f"--delete-files", file_pattern], check=True)
-    
-    # Clean up Git history
-    subprocess.run(["git", "reflog", "expire", "--expire=now", "--all"], check=True)
-    subprocess.run(["git", "gc", "--prune=now", "--aggressive"], check=True)
-    
-    # Force push the changes
-    subprocess.run(["git", "push", "origin", "--force", "--all"], check=True)
-    subprocess.run(["git", "push", "origin", "--force", "--tags"], check=True)
-
-# Call the function to remove the sensitive files
-remove_sensitive_files(".env")
-
-
-# Initialize boto3 session
-
-print(f"AWS_ACCESS_KEY_ID: {aws_access_key_id}")
-print(f"AWS_SECRET_ACCESS_KEY: {aws_secret_access_key}")
-print(f"AWS_REGION: {region}")
-if not aws_access_key_id or not aws_secret_access_key:
-    raise EnvironmentError("AWS credentials are not set in the environment variables.")
-
 # Initialize DynamoDB resource
 dynamodb = session.resource('dynamodb')
 
@@ -174,17 +155,6 @@ def initialize_user_table():
     except Exception as e:
         logging.error(f"An unexpected error occurred while creating the user table: {e}")
 
-# User-related functions
-
-
-if __name__ == '__main__':
-    initialize_db()
-    items = query_table()
-    if items:
-        print(items)
-
-
-
 def update_urls_table():
     """Update the 'urls' table to include additional fields if necessary."""
     table_definition = {
@@ -193,7 +163,8 @@ def update_urls_table():
             {'AttributeName': 'url_length', 'AttributeType': 'N'},
             {'AttributeName': 'num_special_chars', 'AttributeType': 'N'},
             {'AttributeName': 'domain_age', 'AttributeType': 'N'},
-            {'AttributeName': 'content_features', 'AttributeType': 'N'}
+            {'AttributeName': 'word_count', 'AttributeType': 'N'},
+            {'AttributeName': 'num_special_chars_content', 'AttributeType': 'N'}
         ],
         'GlobalSecondaryIndexes': [
             {
@@ -212,7 +183,7 @@ def update_urls_table():
         ]
     }
     try:
-        dynamodb = session.resource('dynamodb')
+        dynamodb = boto3.resource('dynamodb', region_name=os.getenv('AWS_REGION'))
         table = dynamodb.Table('urls')
         table.update(**table_definition)
         logging.info("Table updated successfully.")
@@ -220,6 +191,7 @@ def update_urls_table():
         logging.error(f"An error occurred while updating the table: {e}")
 
 update_urls_table()
+
 # Create the user_interactions table
 def create_user_interactions_table():
     table = dynamodb.create_table(
@@ -241,6 +213,7 @@ def create_user_interactions_table():
     print("Table created successfully.")
 
 create_user_interactions_table()
+
 def calculate_rating(interaction_type):
     interaction_points = {
         'view': 1,
@@ -249,21 +222,24 @@ def calculate_rating(interaction_type):
     }
     return interaction_points.get(interaction_type, 0)
 
-# Function to record interaction
 def record_interaction(user_id, ad_id, interaction_type):
     rating = calculate_rating(interaction_type)
+    table = dynamodb.Table('user_interactions')
 
     try:
         response = table.update_item(
             Key={'user_id': user_id, 'ad_id': ad_id},
-            UpdateExpression='SET rating = rating + :val',
-            ExpressionAttributeValues={':val': rating},
+            UpdateExpression='SET rating = if_not_exists(rating, :start) + :val',
+            ExpressionAttributeValues={':val': rating, ':start': 0},
             ReturnValues='UPDATED_NEW'
         )
         logging.info(f"Interaction recorded: {response}")
     except Exception as e:
         logging.error(f"An error occurred while recording interaction: {e}")
 
-# Example usage
-record_interaction('user1', 'ad1', 'click')
-record_interaction('user1', 'ad1', 'purchase')
+
+if __name__ == '__main__':
+    initialize_db()
+    items = query_table()
+    if items:
+        print(items)
