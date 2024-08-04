@@ -3,11 +3,12 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, IsolationForest
 import joblib
 import logging
 
 from app.models.database import dynamodb
+from app.service.shorten_url import get_url_length, get_num_special_chars
 
 table = dynamodb.Table('user_interactions')
 
@@ -33,19 +34,53 @@ def record_interaction(user_id, ad_id, interaction_type):
     except Exception as e:
         logging.error(f"An error occurred while recording interaction: {e}")
 
+def fetch_data_from_dynamodb(table_name):
+    table = dynamodb.Table(table_name)
+    response = table.scan()
+    data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        data.extend(response['Items'])
+    return pd.DataFrame(data)
+
+def preprocess_data(df):
+    df['url_length'] = df['original_url'].apply(get_url_length)
+    df['num_special_chars'] = df['original_url'].apply(get_num_special_chars)
+    df['domain_age'] = df['domain_age'].astype(int)
+    df['content_features'] = df['content_features'].astype(float)
+    X = df[['url_length', 'num_special_chars', 'domain_age', 'content_features']]
+    y = df['is_malicious']
+    return X, y
+
+def train_anomaly_detection_model():
+    df = fetch_data_from_dynamodb('urls')
+    X, _ = preprocess_data(df)
+
+    model = IsolationForest(contamination=0.1, random_state=42)
+    model.fit(X)
+
+    joblib.dump(model, 'anomaly_detection_model.joblib')
+    print("Anomaly detection model trained and saved successfully.")
+
+def detect_anomaly(features):
+    model = joblib.load('anomaly_detection_model.joblib')
+    prediction = model.predict([features])
+    return prediction[0] == -1
+
 def fetch_interaction_data():
+    table = dynamodb.Table('user_interactions')
     response = table.scan()
     data = response['Items']
     return pd.DataFrame(data)
 
-def preprocess_data(df):
+def preprocess_ad_data(df):
     if not all(col in df.columns for col in ['user_id', 'ad_id', 'rating']):
         raise ValueError("Data must contain 'user_id', 'ad_id', and 'rating' columns")
     return df[['user_id', 'ad_id', 'rating']]
 
 def train_ad_recommendation_model():
     df = fetch_interaction_data()
-    df = preprocess_data(df)
+    df = preprocess_ad_data(df)
 
     user_encoder = LabelEncoder()
     ad_encoder = LabelEncoder()

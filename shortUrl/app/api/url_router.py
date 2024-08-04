@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from app.service.shorten_url import *
 from app.models.model import *
 from app.service.user_management import *
-from app.service.anomaly_detection import validate_url
+
 from app.service.ad_recommendation import recommend_ads, train_ad_recommendation_model, record_interaction
 from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext

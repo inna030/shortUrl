@@ -5,17 +5,11 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 import joblib
 from app.models.database import dynamodb
-from app.service.shorten_url import get_url_length, get_num_special_chars
+from app.service.shorten_url import get_url_length, get_num_special_chars, table
 
-
+table = dynamodb.Table('urls')
 def fetch_data_from_dynamodb(table_name):
-    session = boto3.Session(
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-        region_name=os.getenv('AWS_REGION')
-    )
-    dynamodb = session.resource('dynamodb')
-    table = dynamodb.Table(table_name)
+
 
     response = table.scan()
     data = response['Items']
