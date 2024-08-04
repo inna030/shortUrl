@@ -71,7 +71,7 @@ class TestURLShortener(unittest.TestCase):
         table.meta.client.get_waiter('table_exists').wait(TableName='urls')
         logger.info("Table created successfully.")
 
-        # Initialize TTL attribute if necessary
+
         self.dynamodb.meta.client.update_time_to_live(
             TableName='urls',
             TimeToLiveSpecification={
